@@ -26,10 +26,13 @@ bool fcommonwidth = false;
 bool fnobg = false;
 Double_t multgausbg(Double_t *x, Double_t *par);
 void ClickFit();
+void LiveFit();
 void Clear();
 void Fit();
 void Zoom();
 void UnZoom();
+void CrossHair();
+void LogY();
 void SetCommonWidth(bool set =true){
   fcommonwidth = set;
 }
@@ -47,11 +50,58 @@ void window(){
   fpoints.clear();
   fcanvas = new TCanvas("window","window",600,400);
   fcanvas->AddExec("fit","ClickFit()");
-  //TFile *f = new TFile("gamma_new.root");
-  // fh = (TH1F*)f->Get("hgamma");
-  // fh->Draw();
+  //fcanvas->AddExec("fit","LiveFit()");
   fh = NULL;
   fnpeaks =1;
+}
+void LiveFit(){
+  TObject *select = gPad->GetSelected();
+  if(!select)
+    return;
+
+  TIter next (fcanvas->GetListOfPrimitives());
+  TObject *obj;
+  while((obj=next())){
+    //cout << "reading: " << obj->GetName() << endl;
+    if(obj->InheritsFrom("TH1")){
+      //cout << "histo: " << obj->GetName() << endl;
+      fh = (TH1F*)obj;
+    }
+  }
+  gPad->GetCanvas()->FeedbackMode(kTRUE);
+  //cout << "clicked " << gPad->GetEvent() << endl;
+  //Only act on rightclick-clicks.
+  if(gPad->GetEvent() == 1){
+    Clear();
+    double xp = gPad->GetEventX();
+    double yp = gPad->GetEventY();
+    xp = gPad->AbsPixeltoX((int)xp);
+    yp = gPad->AbsPixeltoY((int)yp);
+    if(yp>fh->GetMinimum() && yp<fh->GetMaximum()){
+      cout << "point: " << fpoints.size() << " selected at "<< xp << "\t" << yp<< endl;
+      fpoints.push_back(xp);
+      gPad->SetEditable(0);
+    }
+  }
+  if(gPad->GetEvent() == 21){
+    double xp = gPad->GetEventX();
+    double yp = gPad->GetEventY();
+    xp = gPad->AbsPixeltoX((int)xp);
+    yp = gPad->AbsPixeltoY((int)yp);
+    if(yp>fh->GetMinimum() && yp<fh->GetMaximum()){
+      cout << "point: " << fpoints.size() << " selected at "<< xp << "\t" << yp<< endl;
+      fpoints.push_back(xp);
+      Fit();
+      fpoints.pop_back();
+      gPad->Modified();
+      gPad->Update();
+      gSystem->ProcessEvents();      
+    }
+  }
+  if(gPad->GetEvent() == 11){
+    gPad->SetEditable(1);
+    Clear();
+  }
 }
 void ClickFit(){
   TObject *select = gPad->GetSelected();
@@ -107,6 +157,12 @@ void ClickFit(){
     case 'u': //unzoom
       UnZoom();
       break;
+    case 'h': //crosshair
+      CrossHair();
+      break;
+    case 'l': //log Y
+      LogY();
+      break;
     default:
       break;
     };
@@ -145,6 +201,24 @@ void Zoom(){
 }
 void UnZoom(){
   fh->GetXaxis()->UnZoom();
+  gPad->Modified();
+  gPad->Update();
+  gSystem->ProcessEvents();
+}
+void CrossHair(){
+  if(gPad->HasCrosshair())
+    gPad->SetCrosshair(0);
+  else
+    gPad->SetCrosshair(1);
+  gPad->Modified();
+  gPad->Update();
+  gSystem->ProcessEvents();
+}
+void LogY(){
+  if(gPad->GetLogy())
+    gPad->SetLogy(0);
+  else
+    gPad->SetLogy(1);
   gPad->Modified();
   gPad->Update();
   gSystem->ProcessEvents();
