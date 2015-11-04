@@ -24,6 +24,8 @@ TF1 *ffit;
 TH1F* fh;
 bool fcommonwidth = false;
 bool fnobg = false;
+bool frebinpressed = false;
+int flinew = 1;
 Double_t multgausbg(Double_t *x, Double_t *par);
 void ClickFit();
 void LiveFit();
@@ -33,6 +35,10 @@ void Zoom();
 void UnZoom();
 void CrossHair();
 void LogY();
+void Rebin(int reb);
+void SetLineWidth(int lw){
+  flinew = lw;
+}
 void SetCommonWidth(bool set =true){
   fcommonwidth = set;
 }
@@ -114,7 +120,7 @@ void ClickFit(){
     //cout << "reading: " << obj->GetName() << endl;
     if(obj->InheritsFrom("TH1")){
       //cout << "histo: " << obj->GetName() << endl;
-      fh = (TH1F*)obj;
+      fh = (TH1F*)obj->Clone();
     }
   }
 
@@ -143,7 +149,9 @@ void ClickFit(){
     gSystem->ProcessEvents();
 
   }
+  //cout << "event " << gPad->GetEvent() << endl;
   if(gPad->GetEvent() ==kKeyPress){
+    //cout << "pressed " << gPad->GetEventX() << endl;
     switch(gPad->GetEventX()){
     case 'f': //fit
       Fit();
@@ -163,9 +171,18 @@ void ClickFit(){
     case 'l': //log Y
       LogY();
       break;
+    case 'r': //rebin
+      cout << "rebinning " << flush;
+      frebinpressed = true;    
+      break;
     default:
       break;
     };
+    if(frebinpressed && gPad->GetEventX()>48 && gPad->GetEventX()<57){
+      cout << "factor " << gPad->GetEventX()-48 << endl;
+      Rebin(gPad->GetEventX()-48);
+      frebinpressed = false;
+    }
   }
 }
 void Addpoint(double xp){
@@ -223,6 +240,18 @@ void LogY(){
   gPad->Update();
   gSystem->ProcessEvents();
 }
+void Rebin(int reb){
+  //fh = (TH1F*)fh->Rebin(reb,"reb");
+  cout << gPad->GetUxmin() <<"\t"<< gPad->GetUxmax() << endl;
+  double min =  gPad->GetUxmin();
+  double max =  gPad->GetUxmax();
+  fh->Rebin(reb);
+  fh->GetXaxis()->SetRangeUser(min,max);
+  fh->Draw();
+  gPad->Modified();
+  gPad->Update();
+  gSystem->ProcessEvents();
+}
 void Fit(){
   sort(fpoints.begin(), fpoints.end());
   fbinw = fh->GetBinWidth(1);
@@ -239,7 +268,7 @@ void Fit(){
     npar = 11;
   ffit = new TF1("fit",multgausbg,fpoints[0],fpoints.back(),npar);
   ffit->SetLineColor(3);
-  ffit->SetLineWidth(1);
+  ffit->SetLineWidth(flinew);
 
 
   if(fpoints.size()==3){
@@ -352,6 +381,33 @@ void Fit(){
   cout << "      Chi Square: " << ffit->GetChisquare() << endl;
   cout << "      FWHM:       " << 2*ffit->GetParameter(4)*sqrt(2*log(2)) << "\t" <<2*ffit->GetParameter(4)*sqrt(2*log(2))/ffit->GetParameter(3) << endl;
 
+  TF1* fbg = new TF1("bg",multgausbg,fpoints[0],fpoints.back(),npar);
+  fbg->SetLineColor(2);
+  fbg->SetLineWidth(flinew);
+  for(int i=0;i<2;i++){
+    fbg->SetParameter(i,ffit->GetParameter(i));
+  }
+  for(int i=2;i<npar;i++){
+    fbg->SetParameter(i,0);
+  }
+  fbg->Draw("same");
+  
+  TF1* fpeak[3];
+  for(int j=0;j<fnpeaks;j++){
+    //cout << "peak " << j << endl;
+    fpeak[j] = new TF1(Form("peak_%d",j),multgausbg,fpoints[0],fpoints.back(),npar);
+    fpeak[j]->SetLineColor(4);
+    fpeak[j]->SetLineWidth(flinew);
+    for(int i=0;i<npar;i++){
+      fpeak[j]->SetParameter(i,0);
+    }
+    for(int i=2+3*j;i<5+3*j;i++){
+      fpeak[j]->SetParameter(i,ffit->GetParameter(i));
+      //cout << "setting par " << i << " to " << ffit->GetParameter(i) << endl;
+    }    
+    fpeak[j]->Draw("same");
+  }
+
   gPad->Modified();
   gPad->Update();
   gSystem->ProcessEvents();
@@ -391,6 +447,8 @@ Double_t multgausbg(Double_t *x, Double_t *par){
     Double_t sigma = par[3*p+4];
     if(fcommonwidth==true)
       sigma  = par[4];
+    if(sigma==0)
+      continue;
     arg = (x[0]-mean)/(sqrt2*sigma);
     result += fbinw/(sqrt2pi*sigma) * norm * exp(-arg*arg);
   }
