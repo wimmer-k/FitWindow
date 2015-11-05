@@ -21,6 +21,8 @@ vector<double> fpoints;
 Double_t fbinw;
 Int_t fnpeaks;
 TF1 *ffit;
+TF1 *fbg;
+TF1* fpeak[5];
 TH1F* fh;
 bool fcommonwidth = false;
 bool fnobg = false;
@@ -120,7 +122,7 @@ void ClickFit(){
     //cout << "reading: " << obj->GetName() << endl;
     if(obj->InheritsFrom("TH1")){
       //cout << "histo: " << obj->GetName() << endl;
-      fh = (TH1F*)obj->Clone();
+      fh = (TH1F*)obj;
     }
   }
 
@@ -204,12 +206,14 @@ void Addpoint(double xp){
 
 }
 void Zoom(){
+  cout << "Zoom" <<endl;
   if(fpoints.size() >2){
     cout << "too many points for zooming! Clearing!" << endl;
     Clear();
     return;    
   }
   sort(fpoints.begin(), fpoints.end());
+  cout << fpoints[0] <<"\t"<<fpoints[1]<<endl;
   fh->GetXaxis()->SetRangeUser(fpoints[0],fpoints[1]);
   gPad->Modified();
   gPad->Update();
@@ -217,12 +221,14 @@ void Zoom(){
   Clear();
 }
 void UnZoom(){
+  cout << "UnZoom" <<endl;
   fh->GetXaxis()->UnZoom();
   gPad->Modified();
   gPad->Update();
   gSystem->ProcessEvents();
 }
 void CrossHair(){
+  cout << "CrossHair" <<endl;
   if(gPad->HasCrosshair())
     gPad->SetCrosshair(0);
   else
@@ -232,6 +238,7 @@ void CrossHair(){
   gSystem->ProcessEvents();
 }
 void LogY(){
+  cout << "LogY" <<endl;
   if(gPad->GetLogy())
     gPad->SetLogy(0);
   else
@@ -253,6 +260,11 @@ void Rebin(int reb){
   gSystem->ProcessEvents();
 }
 void Fit(){
+  if(fpoints.size()<2){
+    cout << "too few points for fitting! " << endl;
+    return;
+  }
+
   sort(fpoints.begin(), fpoints.end());
   fbinw = fh->GetBinWidth(1);
   //cout << fbinw << endl;
@@ -381,7 +393,7 @@ void Fit(){
   cout << "      Chi Square: " << ffit->GetChisquare() << endl;
   cout << "      FWHM:       " << 2*ffit->GetParameter(4)*sqrt(2*log(2)) << "\t" <<2*ffit->GetParameter(4)*sqrt(2*log(2))/ffit->GetParameter(3) << endl;
 
-  TF1* fbg = new TF1("bg",multgausbg,fpoints[0],fpoints.back(),npar);
+  fbg = new TF1("bg",multgausbg,fpoints[0],fpoints.back(),npar);
   fbg->SetLineColor(2);
   fbg->SetLineWidth(flinew);
   for(int i=0;i<2;i++){
@@ -392,18 +404,23 @@ void Fit(){
   }
   fbg->Draw("same");
   
-  TF1* fpeak[3];
   for(int j=0;j<fnpeaks;j++){
-    //cout << "peak " << j << endl;
+    cout << "peak " << j << endl;
     fpeak[j] = new TF1(Form("peak_%d",j),multgausbg,fpoints[0],fpoints.back(),npar);
     fpeak[j]->SetLineColor(4);
     fpeak[j]->SetLineWidth(flinew);
-    for(int i=0;i<npar;i++){
+    for(int i=0;i<2;i++)
       fpeak[j]->SetParameter(i,0);
-    }
-    for(int i=2+3*j;i<5+3*j;i++){
+    for(int i=2;i<npar;i++)
       fpeak[j]->SetParameter(i,ffit->GetParameter(i));
-      //cout << "setting par " << i << " to " << ffit->GetParameter(i) << endl;
+    for(int i=0;i<fnpeaks;i++){
+      if(i!=j)
+	fpeak[j]->SetParameter(2+i*3,0);
+      if(fcommonwidth)
+	fpeak[j]->SetParameter(2+i*3+2,ffit->GetParameter(4));
+    }
+    for(int i=0;i<npar;i++){
+      cout << "setting par " << i << " to " << fpeak[j]->GetParameter(i) << endl;
     }    
     fpeak[j]->Draw("same");
   }
@@ -452,6 +469,7 @@ Double_t multgausbg(Double_t *x, Double_t *par){
     arg = (x[0]-mean)/(sqrt2*sigma);
     result += fbinw/(sqrt2pi*sigma) * norm * exp(-arg*arg);
   }
+  
 
   return result;
 }
