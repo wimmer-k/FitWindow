@@ -419,9 +419,9 @@ void Fit(){
       if(fcommonwidth)
 	fpeak[j]->SetParameter(2+i*3+2,ffit->GetParameter(4));
     }
-    for(int i=0;i<npar;i++){
-      cout << "setting par " << i << " to " << fpeak[j]->GetParameter(i) << endl;
-    }    
+    // for(int i=0;i<npar;i++){
+    //   cout << "setting par " << i << " to " << fpeak[j]->GetParameter(i) << endl;
+    // }    
     fpeak[j]->Draw("same");
   }
 
