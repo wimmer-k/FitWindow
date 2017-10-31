@@ -9,6 +9,7 @@
 #include "TF1.h"
 #include "TFile.h"
 #include "TH1F.h"
+#include "TH2F.h"
 #include "TStyle.h"
 #include "TROOT.h"
 #include "TImage.h"
@@ -24,6 +25,7 @@ TF1 *ffit;
 TF1 *fbg;
 TF1* fpeak[5];
 TH1F* fh;
+TH2F* fh2;
 bool fcommonwidth = false;
 bool fnobg = false;
 bool frebinpressed = false;
@@ -37,21 +39,34 @@ void Zoom();
 void UnZoom();
 void CrossHair();
 void LogY();
+void Project(int axis);
 void Rebin(int reb);
 void SetLineWidth(int lw){
   flinew = lw;
 }
 void SetCommonWidth(bool set =true){
   fcommonwidth = set;
+  cout << " common width ";
+  if(fcommonwidth)
+    cout << "ON " << endl;
+  else
+    cout << "OFF " << endl;
 }
 void UnSetCommonWidth(){
   fcommonwidth = false;
+  cout << " common width OFF" << endl;
 }
 void SetNoBG(bool set =true){
   fnobg = set;
+  cout << " no background ";
+  if(fnobg)
+    cout << "ON " << endl;
+  else
+    cout << "OFF " << endl;
 }
 void UnSetNoBG(){
   fnobg = false;
+  cout << " no background OFF" << endl;
 }
 void window(){
   fmarkers.clear();
@@ -60,6 +75,7 @@ void window(){
   fcanvas->AddExec("fit","ClickFit()");
   //fcanvas->AddExec("fit","LiveFit()");
   fh = NULL;
+  fh2 = NULL;
   fnpeaks =1;
 }
 void LiveFit(){
@@ -124,6 +140,10 @@ void ClickFit(){
       //cout << "histo: " << obj->GetName() << endl;
       fh = (TH1F*)obj;
     }
+    if(obj->InheritsFrom("TH2")){
+      //cout << "histo: " << obj->GetName() << endl;
+      fh2 = (TH2F*)obj;
+    }
   }
 
   gPad->GetCanvas()->FeedbackMode(kTRUE);
@@ -136,7 +156,7 @@ void ClickFit(){
     //cout << xp <<"\t" << yp << endl;
     xp = gPad->AbsPixeltoX((int)xp);
     yp = gPad->AbsPixeltoY((int)yp);
-    cout << "point: " << fpoints.size() << " selected at "<< xp << endl;
+    cout << "point: " << fpoints.size() << " selected at "<< xp << "\t" << yp<< endl;
     fpoints.push_back(xp);
     fmarkers.push_back(new TMarker(xp,yp,2));
     fmarkers.back()->SetMarkerSize(2);
@@ -172,6 +192,12 @@ void ClickFit(){
       break;
     case 'l': //log Y
       LogY();
+      break;
+    case 'x': //project x
+      Project(0);
+      break;
+    case 'y': //project x
+      Project(1);
       break;
     case 'r': //rebin
       cout << "rebinning " << flush;
@@ -223,6 +249,7 @@ void Zoom(){
 void UnZoom(){
   cout << "UnZoom" <<endl;
   fh->GetXaxis()->UnZoom();
+  fh->GetYaxis()->UnZoom();
   gPad->Modified();
   gPad->Update();
   gSystem->ProcessEvents();
@@ -247,6 +274,25 @@ void LogY(){
   gPad->Update();
   gSystem->ProcessEvents();
 }
+void Project(int axis){
+  cout << "Project on ";
+  if(axis == 0)
+    cout << "X";
+  if(axis == 1)
+    cout << "Y";
+  cout << " axis" <<endl;
+  if(!fh2){
+    cout << " not a 2D histogram" << endl;
+  }
+  if(axis == 0)
+    fh2->ProjectionX()->Draw();
+  if(axis == 1)
+    fh2->ProjectionY()->Draw();
+  gPad->Modified();
+  gPad->Update();
+  gSystem->ProcessEvents();
+}
+
 void Rebin(int reb){
   //fh = (TH1F*)fh->Rebin(reb,"reb");
   cout << gPad->GetUxmin() <<"\t"<< gPad->GetUxmax() << endl;
