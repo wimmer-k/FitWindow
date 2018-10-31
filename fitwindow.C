@@ -28,6 +28,7 @@ TH1F* fh;
 TH2F* fh2;
 bool fcommonwidth = false;
 bool fnobg = false;
+bool flog = false;
 bool frebinpressed = false;
 int flinew = 1;
 Double_t multgausbg(Double_t *x, Double_t *par);
@@ -60,6 +61,14 @@ void SetNoBG(bool set =true){
   fnobg = set;
   cout << " no background ";
   if(fnobg)
+    cout << "ON " << endl;
+  else
+    cout << "OFF " << endl;
+}
+void SetLogLikelyhood(bool set =true){
+  flog= set;
+  cout << " log likelyhood ";
+  if(flog)
     cout << "ON " << endl;
   else
     cout << "OFF " << endl;
@@ -139,10 +148,12 @@ void ClickFit(){
     if(obj->InheritsFrom("TH1")){
       //cout << "histo: " << obj->GetName() << endl;
       fh = (TH1F*)obj;
+      fh2 = NULL;
     }
     if(obj->InheritsFrom("TH2")){
       //cout << "histo: " << obj->GetName() << endl;
       fh2 = (TH2F*)obj;
+      fh = NULL;
     }
   }
 
@@ -248,8 +259,15 @@ void Zoom(){
 }
 void UnZoom(){
   cout << "UnZoom" <<endl;
-  fh->GetXaxis()->UnZoom();
-  fh->GetYaxis()->UnZoom();
+  if(fh){
+    fh->GetXaxis()->UnZoom();
+    fh->GetYaxis()->UnZoom();
+  }
+  if(fh2){
+    fh2->GetXaxis()->UnZoom();
+    fh2->GetYaxis()->UnZoom();
+    fh2->GetZaxis()->UnZoom();
+  }
   gPad->Modified();
   gPad->Update();
   gSystem->ProcessEvents();
@@ -265,11 +283,24 @@ void CrossHair(){
   gSystem->ProcessEvents();
 }
 void LogY(){
-  cout << "LogY" <<endl;
-  if(gPad->GetLogy())
-    gPad->SetLogy(0);
-  else
-    gPad->SetLogy(1);
+  TIter next (fcanvas->GetListOfPrimitives());
+  TObject *obj;
+  if(fh){
+    cout << "LogY" <<endl;
+    if(gPad->GetLogy())
+      gPad->SetLogy(0);
+    else
+      gPad->SetLogy(1);
+  }
+  else if(fh2){
+    cout << "LogZ" <<endl;
+    if(gPad->GetLogy())
+      gPad->SetLogy(0);
+    if(gPad->GetLogz())
+      gPad->SetLogz(0);
+    else
+      gPad->SetLogz(1);
+  }
   gPad->Modified();
   gPad->Update();
   gSystem->ProcessEvents();
@@ -434,7 +465,10 @@ void Fit(){
     ffit->FixParameter(0,0);
     ffit->FixParameter(1,0);
   }
-  fh->Fit(ffit,"R");
+  if(flog)
+    fh->Fit(ffit,"RL");
+  else
+    fh->Fit(ffit,"R");
   //ffit->Draw("same");
   cout << "      Chi Square: " << ffit->GetChisquare() << endl;
   cout << "      FWHM:       " << 2*ffit->GetParameter(4)*sqrt(2*log(2)) << "\t" <<2*ffit->GetParameter(4)*sqrt(2*log(2))/ffit->GetParameter(3) << endl;
